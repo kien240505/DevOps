@@ -4,7 +4,7 @@ pipeline {
   stages {
     stage('Build images') {
     steps {
-        bat 'set DOCKER_BUILDKIT=0 && set COMPOSE_DOCKER_CLI_BUILD=0 && docker compose build'
+      bat 'docker compose build'
     }
 }
 
