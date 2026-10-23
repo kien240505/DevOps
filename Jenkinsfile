@@ -3,12 +3,10 @@ pipeline {
 
   stages {
     stage('Build images') {
-      steps {
-        withCredentials([file(credentialsId: 'backend-env', variable: 'BACKEND_ENV_FILE')]) {
-          sh 'docker compose build'
-        }
-      }
+    steps {
+        bat 'set DOCKER_BUILDKIT=0 && set COMPOSE_DOCKER_CLI_BUILD=0 && docker compose build'
     }
+}
 
     stage('Deploy') {
       when {
