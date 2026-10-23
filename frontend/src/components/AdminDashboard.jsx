@@ -363,6 +363,7 @@ export const AdminDashboard = () => {
               <tr style={{ borderBottom: '1px solid var(--border-light)', color: 'var(--text-muted)' }}>
                 <th style={{ padding: '12px' }}>Mã Đơn</th>
                 <th style={{ padding: '12px' }}>Khách Hàng</th>
+                <th style={{ padding: '12px' }}>Sản Phẩm Đã Đặt</th>
                 <th style={{ padding: '12px' }}>SĐT / Email</th>
                 <th style={{ padding: '12px' }}>Tổng Tiền</th>
                 <th style={{ padding: '12px' }}>Thanh Toán</th>
@@ -373,7 +374,7 @@ export const AdminDashboard = () => {
             <tbody>
               {orders.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-dim)' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-dim)' }}>
                     Chưa có đơn hàng nào được ghi nhận.
                   </td>
                 </tr>
@@ -382,6 +383,21 @@ export const AdminDashboard = () => {
                   <tr key={o.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
                     <td style={{ padding: '12px', fontWeight: 700, color: '#818cf8' }}>#{o.id}</td>
                     <td style={{ padding: '12px', color: 'white', fontWeight: 600 }}>{o.customer_name}</td>
+                    <td style={{ padding: '12px', color: 'var(--text-muted)', minWidth: '200px' }}>
+                      {o.items?.length ? (
+                        <div style={{ display: 'grid', gap: '5px' }}>
+                          {o.items.map((item, itemIndex) => (
+                            <div key={item.id || `${item.product_id}-${itemIndex}`}>
+                              <span style={{ color: '#e2e8f0' }}>
+                                {item.product_name || item.name || `Sản phẩm #${item.product_id}`}
+                              </span>
+                              {' '}× {item.quantity}
+                              {' '}(${Number(item.price || 0).toLocaleString()} / SP)
+                            </div>
+                          ))}
+                        </div>
+                      ) : 'Chưa có chi tiết sản phẩm'}
+                    </td>
                     <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{o.phone}<br/>{o.email}</td>
                     <td style={{ padding: '12px', fontWeight: 800, color: '#34d399' }}>${o.total_amount.toLocaleString()}</td>
                     <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{o.payment_method}</td>

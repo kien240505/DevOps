@@ -238,7 +238,6 @@ const MOCK_PRODUCTS = [
 ];
 
 let localProducts = [...MOCK_PRODUCTS];
-let localOrders = [];
 let localMessages = [];
 
 export const getAuthHeaders = () => {
@@ -256,6 +255,18 @@ const fetchOrFallback = async (url, options, fallbackFn) => {
     console.warn(`[Offline Fallback Mode] Backend unavailable at ${url}. Using local fallback.`, err);
     return fallbackFn();
   }
+};
+
+const fetchRequired = async (url, options = {}) => {
+  const res = await fetch(url, options);
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(`API trả về dữ liệu không hợp lệ (${res.status})`);
+  }
+  if (!res.ok) throw new Error(data.error || `Yêu cầu thất bại (${res.status})`);
+  return data;
 };
 
 export const fetchProducts = async (filters = {}) => {
@@ -337,110 +348,63 @@ export const addProductComment = async (productId, commentData) => {
 };
 
 export const createOrder = async (orderData) => {
-  return fetchOrFallback(
+  return fetchRequired(
     `${API_BASE_URL}/orders`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(orderData)
-    },
-    () => {
-      const newOrderId = Math.floor(1000 + Math.random() * 9000);
-      const newOrder = {
-        id: newOrderId,
-        customer_name: orderData.customer_name,
-        email: orderData.email,
-        phone: orderData.phone,
-        address: orderData.address,
-        payment_method: orderData.payment_method || 'COD',
-        total_amount: orderData.total_amount,
-        status: 'Pending',
-        created_at: new Date().toISOString()
-      };
-      localOrders.unshift(newOrder);
-      return { orderId: newOrderId, message: 'Order created successfully!' };
     }
   );
 };
 
 export const processPayment = async (orderId, paymentGateway = 'VietQR') => {
-  return fetchOrFallback(
+  return fetchRequired(
     `${API_BASE_URL}/orders/${orderId}/pay`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payment_gateway: paymentGateway })
-    },
-    () => ({ message: `Thanh toán thành công qua ${paymentGateway}` })
+    }
   );
 };
 
 export const fetchAdminStats = async () => {
-  return fetchOrFallback(
+  return fetchRequired(
     `${API_BASE_URL}/admin/stats`,
     {
       headers: { ...getAuthHeaders() }
-    },
-    () => {
-      const totalRevenue = localOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
-      const lowStock = localProducts.filter(p => p.stock <= 3).length;
-      return {
-        totalProducts: localProducts.length,
-        lowStock,
-        totalOrders: localOrders.length,
-        totalRevenue
-      };
     }
   );
 };
 
 export const adminLogin = async (username, password) => {
-  try {
-    const res = await fetch(`${API_BASE_URL}/admin/login`, {
+  return fetchRequired(
+    `${API_BASE_URL}/admin/login`,
+    {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Đăng nhập thất bại');
-    return data;
-  } catch (err) {
-    console.warn("[Offline Admin Login Fallback]", err);
-    if (username === 'admin' && password === 'admin123') {
-      return {
-        success: true,
-        token: 'mock_token_' + Date.now(),
-        admin: { username: 'admin', role: 'SuperAdmin' },
-        message: 'Đăng nhập quản trị viên thành công!'
-      };
-    } else {
-      throw new Error('Tài khoản hoặc mật khẩu không chính xác! (Demo: admin / admin123)');
     }
-  }
+  );
 };
 
 export const fetchOrders = async () => {
-  return fetchOrFallback(
+  return fetchRequired(
     `${API_BASE_URL}/orders`,
     {
       headers: { ...getAuthHeaders() }
-    },
-    () => localOrders
+    }
   );
 };
 
 export const updateOrderStatus = async (orderId, status) => {
-  return fetchOrFallback(
+  return fetchRequired(
     `${API_BASE_URL}/orders/${orderId}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ status })
-    },
-    () => {
-      const order = localOrders.find(o => o.id === Number(orderId));
-      if (order) order.status = status;
-      return { message: `Order #${orderId} status updated` };
     }
   );
 };
@@ -521,15 +485,14 @@ export const deleteUser = async (userId) => {
   );
 };
 
-export const fetchUserOrders = async (email) => {
-  if (!email) return [];
-  return fetchOrFallback(
-    `${API_BASE_URL}/orders/user/${encodeURIComponent(email)}`,
-    {},
-    () => {
-      return localOrders.filter(o => o.email && o.email.toLowerCase() === email.toLowerCase());
+export const fetchUserOrders = async () => {
+  const token = localStorage.getItem('technova_token');
+  if (!token) throw new Error('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
+
+  return fetchRequired(
+    `${API_BASE_URL}/orders/mine`,
+    {
+      headers: { Authorization: `Bearer ${token}` }
     }
   );
 };
-
-

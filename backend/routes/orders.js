@@ -9,6 +9,9 @@ router.post('/', orderController.createOrder);
 // Mock payment route
 router.post('/:id/pay', orderController.processPayment);
 
+// Customer order history
+router.get('/mine', verifyToken, orderController.getUserOrders);
+
 // Protected routes (Admin only)
 router.get('/', verifyToken, isAdmin, orderController.getAllOrders);
 router.put('/:id', verifyToken, isAdmin, orderController.updateOrderStatus);

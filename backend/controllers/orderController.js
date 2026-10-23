@@ -87,6 +87,30 @@ exports.getAllOrders = async (req, res) => {
   }
 };
 
+exports.getUserOrders = async (req, res) => {
+  const email = req.user?.email;
+  if (!email) return res.status(400).json({ error: 'User email is required' });
+
+  try {
+    const pool = await poolPromise;
+    const ordersResult = await pool.request()
+      .input('email', sql.NVARCHAR, email)
+      .query('SELECT * FROM orders WHERE LOWER(email) = LOWER(@email) ORDER BY id DESC');
+    const orders = ordersResult.recordset;
+
+    for (const order of orders) {
+      const itemsResult = await pool.request()
+        .input('order_id', sql.INT, order.id)
+        .query('SELECT * FROM order_items WHERE order_id = @order_id');
+      order.items = itemsResult.recordset || [];
+    }
+
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.updateOrderStatus = async (req, res) => {
   const { status } = req.body;
   const orderId = req.params.id;

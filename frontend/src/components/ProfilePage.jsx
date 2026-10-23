@@ -104,21 +104,25 @@ export const ProfilePage = ({ navigateTo }) => {
 
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
 
   useEffect(() => {
     if (currentUser?.email) {
       setLoadingOrders(true);
-      fetchUserOrders(currentUser.email)
+      setOrdersError('');
+      fetchUserOrders()
         .then(data => {
           setOrders(Array.isArray(data) ? data : []);
         })
         .catch(err => {
           console.error('Error fetching user orders:', err);
           setOrders([]);
+          setOrdersError(err.message);
         })
         .finally(() => setLoadingOrders(false));
     } else {
       setOrders([]);
+      setOrdersError('');
     }
   }, [currentUser?.email]);
 
@@ -383,6 +387,10 @@ export const ProfilePage = ({ navigateTo }) => {
             <div style={{ padding: '50px', textAlign: 'center', color: 'var(--text-muted)' }}>
               Đang tải danh sách đơn hàng...
             </div>
+          ) : ordersError ? (
+            <div style={{ padding: '50px 24px', textAlign: 'center', color: '#fb7185' }}>
+              Không thể tải lịch sử đơn hàng: {ordersError}
+            </div>
           ) : orders.length === 0 ? (
             <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
               <Package size={48} style={{ margin: '0 auto 16px', opacity: 0.35, display: 'block', color: '#818cf8' }} />
@@ -418,6 +426,23 @@ export const ProfilePage = ({ navigateTo }) => {
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '3px' }}>
                       <Clock size={12} style={{ display: 'inline', marginRight: '4px' }} />
                       {order.created_at ? new Date(order.created_at).toLocaleDateString('vi-VN') : 'Gần đây'} · {itemCount} sản phẩm
+                    </div>
+                    <div style={{ marginTop: '10px', display: 'grid', gap: '5px' }}>
+                      {order.items?.length ? order.items.map((item, itemIndex) => (
+                        <div key={item.id || `${item.product_id}-${itemIndex}`} style={{
+                          color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5
+                        }}>
+                          <span style={{ color: '#e2e8f0', fontWeight: 600 }}>
+                            {item.product_name || item.name || `Sản phẩm #${item.product_id}`}
+                          </span>
+                          {' '}× {item.quantity}
+                          {' '}· ${Number(item.price || 0).toLocaleString()} / sản phẩm
+                        </div>
+                      )) : (
+                        <div style={{ color: '#fb7185', fontSize: '0.82rem' }}>
+                          Chưa có thông tin sản phẩm trong đơn hàng này.
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
