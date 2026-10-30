@@ -1,6 +1,6 @@
 services:
   database:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/azure-sql-edge:latest
     container_name: technova-database
     environment:
       ACCEPT_EULA: "Y"
