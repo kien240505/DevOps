@@ -19,7 +19,8 @@ services:
     depends_on:
       - database
     env_file:
-      - ${BACKEND_ENV_FILE:-./backend/.env}
+      - path: ${BACKEND_ENV_FILE:-./backend/.env}
+        required: false
     environment:
       PORT: "5000"
       DB_SERVER: "${DB_SERVER:-database}"
