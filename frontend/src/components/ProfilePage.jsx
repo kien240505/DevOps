@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { useCart } from '../context/CartContext';
-import { fetchUserOrders } from '../services/api';
+import { fetchUserOrders, completeOrder } from '../services/api';
+import { OrderReviewModal } from './OrderReviewModal';
 
 const StatCard = ({ icon: Icon, label, value, color }) => (
   <div style={{
@@ -105,6 +106,49 @@ export const ProfilePage = ({ navigateTo }) => {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [ordersError, setOrdersError] = useState('');
+  const [reviewModal, setReviewModal] = useState({ isOpen: false, order: null, item: null });
+  const [confirmingOrder, setConfirmingOrder] = useState(null);
+  const { showToast } = useCart();
+
+  const [reviewedItems, setReviewedItems] = useState(() => {
+    try {
+      const saved = localStorage.getItem('technova_reviewed_items');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const handleOpenReview = (order, item) => {
+    setReviewModal({ isOpen: true, order, item });
+  };
+
+  const handleReviewSuccess = ({ orderId, productId, rating, content }) => {
+    const key = `${orderId}_${productId}`;
+    const updated = {
+      ...reviewedItems,
+      [key]: { rating, content, date: new Date().toISOString() }
+    };
+    setReviewedItems(updated);
+    try {
+      localStorage.setItem('technova_reviewed_items', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Failed to save reviewed items:', e);
+    }
+  };
+
+  const handleConfirmDelivery = async (orderId) => {
+    try {
+      setConfirmingOrder(orderId);
+      const res = await completeOrder(orderId);
+      showToast(res.message || 'Xác nhận đơn hàng hoàn thành thành công!');
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'Delivered', payment_status: 'Paid' } : o));
+    } catch (err) {
+      showToast('Lỗi: ' + err.message);
+    } finally {
+      setConfirmingOrder(null);
+    }
+  };
 
   useEffect(() => {
     if (currentUser?.email) {
@@ -126,7 +170,7 @@ export const ProfilePage = ({ navigateTo }) => {
     }
   }, [currentUser?.email]);
 
-  const completedOrders = orders.filter(o => o.status === 'Delivered' || o.status === 'Đã giao').length;
+  const completedOrders = orders.filter(o => ['Delivered', 'Đã giao', 'Completed', 'Đã hoàn thành'].includes(o.status)).length;
   const shippingOrders = orders.filter(o => ['Processing', 'Shipping', 'Đang giao', 'Pending'].includes(o.status)).length;
   const rewardPoints = orders.reduce((sum, o) => sum + Math.round(Number(o.total_amount || 0) * 0.1), 0);
 
@@ -404,58 +448,138 @@ export const ProfilePage = ({ navigateTo }) => {
             </div>
           ) : (
             orders.map((order, i) => {
-              const isDelivered = order.status === 'Delivered' || order.status === 'Đã giao';
+              const isDelivered = ['Delivered', 'Đã giao', 'Completed', 'Đã hoàn thành'].includes(order.status);
               const color = isDelivered ? '#34d399' : '#f59e0b';
               const itemCount = order.items?.length || 1;
               return (
                 <div key={order.id || i} style={{
                   padding: '20px 28px',
                   borderBottom: i < orders.length - 1 ? '1px solid var(--border-light)' : 'none',
-                  display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap',
+                  display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap',
                   transition: 'background 0.2s'
                 }}>
                   <div style={{
                     width: '44px', height: '44px', borderRadius: '12px',
                     background: `${color}15`, border: `1px solid ${color}30`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    marginTop: '2px'
                   }}>
                     <Package size={20} color={color} />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.95rem' }}>Đơn hàng #{order.id}</div>
+                  <div style={{ flex: 1, minWidth: '240px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, color: '#fff', fontSize: '0.98rem' }}>Đơn hàng #{order.id}</span>
+                      {isDelivered && (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '4px',
+                          fontSize: '0.72rem', color: '#34d399', fontWeight: 700,
+                          background: 'rgba(52,211,153,0.12)', padding: '2px 8px', borderRadius: 'var(--radius-full)'
+                        }}>
+                          <CheckCircle2 size={11} /> Đã hoàn thành · Cho phép đánh giá
+                        </span>
+                      )}
+                    </div>
                     <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '3px' }}>
                       <Clock size={12} style={{ display: 'inline', marginRight: '4px' }} />
                       {order.created_at ? new Date(order.created_at).toLocaleDateString('vi-VN') : 'Gần đây'} · {itemCount} sản phẩm
                     </div>
-                    <div style={{ marginTop: '10px', display: 'grid', gap: '5px' }}>
-                      {order.items?.length ? order.items.map((item, itemIndex) => (
-                        <div key={item.id || `${item.product_id}-${itemIndex}`} style={{
-                          color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5
-                        }}>
-                          <span style={{ color: '#e2e8f0', fontWeight: 600 }}>
-                            {item.product_name || item.name || `Sản phẩm #${item.product_id}`}
-                          </span>
-                          {' '}× {item.quantity}
-                          {' '}· ${Number(item.price || 0).toLocaleString()} / sản phẩm
-                        </div>
-                      )) : (
+                    <div style={{ marginTop: '12px', display: 'grid', gap: '8px' }}>
+                      {order.items?.length ? order.items.map((item, itemIndex) => {
+                        const itemKey = `${order.id}_${item.product_id}`;
+                        const reviewed = reviewedItems[itemKey];
+
+                        return (
+                          <div key={item.id || `${item.product_id}-${itemIndex}`} style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            gap: '12px', flexWrap: 'wrap',
+                            padding: '8px 12px',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                            borderRadius: 'var(--radius-sm)'
+                          }}>
+                            <div style={{ color: 'var(--text-muted)', fontSize: '0.84rem', lineHeight: 1.5, flex: 1, minWidth: '180px' }}>
+                              <span style={{ color: '#e2e8f0', fontWeight: 600 }}>
+                                {item.product_name || item.name || `Sản phẩm #${item.product_id}`}
+                              </span>
+                              {' '}× {item.quantity}
+                              {' '}· ${Number(item.price || 0).toLocaleString()} / SP
+                            </div>
+
+                            {/* Review Action */}
+                            {isDelivered ? (
+                              reviewed ? (
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                  padding: '3px 10px', borderRadius: 'var(--radius-full)',
+                                  background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)',
+                                  color: '#f59e0b', fontSize: '0.75rem', fontWeight: 700
+                                }}>
+                                  <Star size={11} fill="#f59e0b" color="#f59e0b" />
+                                  Đã đánh giá ({reviewed.rating}★)
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => handleOpenReview(order, item)}
+                                  style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                                    padding: '5px 12px', borderRadius: 'var(--radius-full)',
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                    color: '#fff', fontSize: '0.78rem', fontWeight: 700,
+                                    border: 'none', cursor: 'pointer',
+                                    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)',
+                                    transition: 'all 0.15s ease'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                  onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                                >
+                                  <Star size={12} fill="#fff" />
+                                  <span>Đánh giá sản phẩm</span>
+                                </button>
+                              )
+                            ) : (
+                              <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                                Đánh giá sau khi nhận hàng
+                              </span>
+                            )}
+                          </div>
+                        );
+                      }) : (
                         <div style={{ color: '#fb7185', fontSize: '0.82rem' }}>
                           Chưa có thông tin sản phẩm trong đơn hàng này.
                         </div>
                       )}
                     </div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 800, color: '#fff', fontSize: '1rem' }}>${Number(order.total_amount || 0).toLocaleString()}</div>
+                  <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                    <div style={{ fontWeight: 800, color: '#fff', fontSize: '1.05rem' }}>${Number(order.total_amount || 0).toLocaleString()}</div>
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', gap: '4px',
                       padding: '3px 10px', borderRadius: 'var(--radius-full)',
                       background: `${color}15`, color,
-                      fontSize: '0.75rem', fontWeight: 700, marginTop: '4px'
+                      fontSize: '0.75rem', fontWeight: 700
                     }}>
                       {isDelivered ? <CheckCircle2 size={11} /> : <Truck size={11} />}
-                      {order.status}
+                      {isDelivered ? 'Đã hoàn thành' : order.status}
                     </span>
+
+                    {!isDelivered && (
+                      <button
+                        onClick={() => handleConfirmDelivery(order.id)}
+                        disabled={confirmingOrder === order.id}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '4px',
+                          padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+                          background: 'rgba(52, 211, 153, 0.12)', border: '1px solid rgba(52, 211, 153, 0.3)',
+                          color: '#34d399', fontSize: '0.75rem', fontWeight: 600,
+                          cursor: 'pointer', marginTop: '4px',
+                          transition: 'all 0.15s ease'
+                        }}
+                        title="Bấm để xác nhận bạn đã nhận được hàng và mở quyền đánh giá sản phẩm"
+                      >
+                        <CheckCircle2 size={12} />
+                        <span>{confirmingOrder === order.id ? 'Đang cập nhật...' : 'Đã nhận hàng'}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -546,6 +670,14 @@ export const ProfilePage = ({ navigateTo }) => {
           </div>
         </div>
       )}
+
+      <OrderReviewModal
+        isOpen={reviewModal.isOpen}
+        onClose={() => setReviewModal({ isOpen: false, order: null, item: null })}
+        order={reviewModal.order}
+        item={reviewModal.item}
+        onReviewSuccess={handleReviewSuccess}
+      />
     </div>
   );
 };

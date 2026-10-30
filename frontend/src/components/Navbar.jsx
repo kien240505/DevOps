@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Search, Store, Headset, LogIn, LogOut, UserCircle2, ChevronDown, LayoutDashboard } from 'lucide-react';
+import { ShoppingBag, Search, Store, Headset, LogIn, LogOut, UserCircle2, ChevronDown, LayoutDashboard, X, Flame } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
+
+const HOT_KEYWORDS = [
+  'MacBook M3',
+  'iPhone 15 Pro',
+  'Sony ANC',
+  'Bàn phím cơ',
+  'Màn hình 4K',
+  'PlayStation 5'
+];
 
 export const Navbar = ({ search, setSearch, currentPath, navigateTo, onOpenContact }) => {
   const { totalItemsCount, setIsCartOpen } = useCart();
@@ -12,147 +21,199 @@ export const Navbar = ({ search, setSearch, currentPath, navigateTo, onOpenConta
   const isProfilePath = currentPath === '/profile';
 
   return (
-    <nav className="navbar">
-      <div className="nav-inner">
-        {/* Brand Logo */}
-        <a href="/" className="logo" onClick={(e) => { e.preventDefault(); navigateTo('/'); }}>
-          <div className="logo-icon">
-            <ShoppingBag size={22} />
-          </div>
-          <div>
-            <span>Tech<span style={{ color: '#818cf8' }}>Nova</span></span>
-            {isAdminPath ? (
-              <span className="badge badge-rose" style={{ marginLeft: '8px', fontSize: '0.65rem' }}>Admin Portal</span>
-            ) : isProfilePath ? (
-              <span className="badge badge-cyan" style={{ marginLeft: '8px', fontSize: '0.65rem' }}>Tài Khoản</span>
+    <header className="sticky-header-container">
+      <nav className="navbar">
+        <div className="nav-inner">
+          {/* Brand Logo */}
+          <a href="/" className="logo" onClick={(e) => { e.preventDefault(); navigateTo('/'); }}>
+            <div className="logo-icon">
+              <ShoppingBag size={22} />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
+                  Tech<span style={{ color: '#818cf8' }}>Nova</span>
+                </span>
+                <span className="badge-mall">MALL</span>
+              </div>
+              {isAdminPath ? (
+                <span className="badge badge-rose" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>Admin Portal</span>
+              ) : isProfilePath ? (
+                <span className="badge badge-cyan" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>Khách Hàng VIP</span>
+              ) : (
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', display: 'block', marginTop: '-2px' }}>
+                  Sàn Công Nghệ Đỉnh Cao
+                </span>
+              )}
+            </div>
+          </a>
+
+          {/* Search Box with Hot Keywords */}
+          {!isAdminPath && !isProfilePath && (
+            <div className="header-search-wrapper">
+              <div className="search-box">
+                <Search className="search-icon" size={18} />
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Tìm kiếm Laptop M3, iPhone 15, Tai nghe Sony, Chuột MX Master..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                {search && (
+                  <button 
+                    className="search-clear-btn" 
+                    onClick={() => setSearch('')}
+                    title="Xóa tìm kiếm"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+                <button 
+                  className="search-submit-btn"
+                  onClick={() => {
+                    const el = document.getElementById('catalog-grid');
+                    if (el) el.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  <Search size={16} />
+                  <span>Tìm Kiếm</span>
+                </button>
+              </div>
+
+              {/* Hot Search Suggestions */}
+              <div className="hot-keywords-bar">
+                <span className="hot-keywords-label">
+                  <Flame size={12} color="#f43f5e" /> Gợi ý:
+                </span>
+                {HOT_KEYWORDS.map((kw) => (
+                  <button
+                    key={kw}
+                    className={`hot-kw-pill ${search.toLowerCase() === kw.toLowerCase() ? 'active' : ''}`}
+                    onClick={() => {
+                      setSearch(kw);
+                      const el = document.getElementById('catalog-grid');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    {kw}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Nav Actions */}
+          <div className="nav-actions">
+            {!isAdminPath ? (
+              <>
+                {/* Contact button */}
+                {!isProfilePath && (
+                  <button
+                    className="btn btn-secondary nav-action-btn"
+                    onClick={onOpenContact}
+                    title="Hỗ trợ & Liên hệ CSKH 24/7"
+                  >
+                    <Headset size={16} color="#22d3ee" />
+                    <span>Hỗ Trợ</span>
+                  </button>
+                )}
+
+                {/* User Auth Area */}
+                {currentUser ? (
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      className="btn btn-secondary nav-user-btn"
+                      onClick={() => setShowDropdown(!showDropdown)}
+                    >
+                      <img
+                        src={currentUser.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&q=80'}
+                        alt={currentUser.fullname}
+                        className="user-avatar-sm"
+                      />
+                      <div className="user-name-box">
+                        <span className="user-name-text">
+                          {currentUser.fullname}
+                        </span>
+                        <span className="user-role-badge">
+                          {currentUser.role === 'admin' ? 'Quản Trị Viên' : 'Thành Viên'}
+                        </span>
+                      </div>
+                      <ChevronDown size={14} />
+                    </button>
+
+                    {showDropdown && (
+                      <div className="user-dropdown-menu">
+                        <div className="dropdown-user-header">
+                          <p className="dropdown-user-name">{currentUser.fullname}</p>
+                          <p className="dropdown-user-email">{currentUser.email}</p>
+                        </div>
+                        {/* Profile link */}
+                        <button
+                          className="dropdown-item"
+                          onClick={() => { navigateTo('/profile'); setShowDropdown(false); }}
+                        >
+                          <UserCircle2 size={16} color="#818cf8" />
+                          <span>Tài Khoản & Đơn Hàng</span>
+                        </button>
+                        {/* Admin panel (if admin) */}
+                        {currentUser.role === 'admin' && (
+                          <button
+                            className="dropdown-item highlight"
+                            onClick={() => { navigateTo('/admin'); setShowDropdown(false); }}
+                          >
+                            <LayoutDashboard size={16} color="#fb7185" />
+                            <span>Bảng Quản Trị (Admin)</span>
+                          </button>
+                        )}
+                        <div className="dropdown-divider" />
+                        <button
+                          className="dropdown-item logout"
+                          onClick={() => { logout(); setShowDropdown(false); }}
+                        >
+                          <LogOut size={16} />
+                          <span>Đăng Xuất</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    className="btn btn-outline"
+                    style={{ fontSize: '0.85rem', padding: '8px 14px' }}
+                    onClick={() => openAuth('login')}
+                  >
+                    <LogIn size={16} />
+                    <span>Đăng Nhập</span>
+                  </button>
+                )}
+
+                {/* Cart Trigger */}
+                {!isProfilePath && (
+                  <button className="cart-trigger" onClick={() => setIsCartOpen(true)} title="Xem giỏ hàng của bạn">
+                    <div style={{ position: 'relative' }}>
+                      <ShoppingBag size={20} color="#818cf8" />
+                      {totalItemsCount > 0 && (
+                        <span className="cart-badge-count">{totalItemsCount}</span>
+                      )}
+                    </div>
+                    <span className="cart-text">Giỏ hàng</span>
+                  </button>
+                )}
+              </>
             ) : (
-              <span className="badge badge-cyan" style={{ marginLeft: '8px', fontSize: '0.65rem' }}>Store</span>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: '0.85rem', padding: '8px 16px' }}
+                onClick={() => navigateTo('/')}
+              >
+                <Store size={16} />
+                <span>Về Trang Cửa Hàng</span>
+              </button>
             )}
           </div>
-        </a>
-
-        {/* Search Bar - only in shop */}
-        {!isAdminPath && !isProfilePath && (
-          <div className="search-box">
-            <Search className="search-icon" size={18} />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Tìm kiếm Laptop, iPhone, Tai nghe, Chuột..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        )}
-
-        {/* Nav Actions */}
-        <div className="nav-actions">
-          {!isAdminPath ? (
-            <>
-              {/* Contact button */}
-              {!isProfilePath && (
-                <button
-                  className="btn btn-secondary"
-                  style={{ fontSize: '0.85rem', padding: '8px 14px' }}
-                  onClick={onOpenContact}
-                >
-                  <Headset size={16} color="#22d3ee" />
-                  <span>Liên Hệ</span>
-                </button>
-              )}
-
-              {/* User Auth Area */}
-              {currentUser ? (
-                <div style={{ position: 'relative' }}>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 12px', gap: '8px' }}
-                    onClick={() => setShowDropdown(!showDropdown)}
-                  >
-                    <img
-                      src={currentUser.avatar}
-                      alt={currentUser.fullname}
-                      style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #6366f1' }}
-                    />
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {currentUser.fullname}
-                    </span>
-                    <ChevronDown size={14} />
-                  </button>
-
-                  {showDropdown && (
-                    <div style={{
-                      position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                      background: '#111827', border: '1px solid var(--border-light)',
-                      borderRadius: 'var(--radius-sm)', padding: '8px', minWidth: '200px',
-                      zIndex: 200, boxShadow: 'var(--shadow-lg)'
-                    }}>
-                      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-light)', marginBottom: '6px' }}>
-                        <p style={{ fontSize: '0.88rem', fontWeight: 700, color: 'white', marginBottom: '2px' }}>{currentUser.fullname}</p>
-                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{currentUser.email}</p>
-                      </div>
-                      {/* Profile link */}
-                      <button
-                        onClick={() => { navigateTo('/profile'); setShowDropdown(false); }}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', background: 'none', border: 'none', color: '#a5b4fc', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600 }}
-                      >
-                        <UserCircle2 size={15} />
-                        <span>Tài Khoản Của Tôi</span>
-                      </button>
-                      {/* Admin panel (if admin) */}
-                      {currentUser.role === 'admin' && (
-                        <button
-                          onClick={() => { navigateTo('/admin'); setShowDropdown(false); }}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600 }}
-                        >
-                          <LayoutDashboard size={15} />
-                          <span>Admin Dashboard</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => { logout(); setShowDropdown(false); }}
-                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 12px', background: 'none', border: 'none', color: '#fb7185', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600 }}
-                      >
-                        <LogOut size={15} />
-                        <span>Đăng Xuất</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <button
-                  className="btn btn-outline"
-                  style={{ fontSize: '0.85rem', padding: '8px 14px' }}
-                  onClick={() => openAuth('login')}
-                >
-                  <LogIn size={16} />
-                  <span>Đăng Nhập</span>
-                </button>
-              )}
-
-              {/* Cart Trigger - hide on profile */}
-              {!isProfilePath && (
-                <button className="cart-trigger" onClick={() => setIsCartOpen(true)}>
-                  <ShoppingBag size={20} color="#818cf8" />
-                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Giỏ hàng</span>
-                  {totalItemsCount > 0 && (
-                    <span className="cart-badge-count">{totalItemsCount}</span>
-                  )}
-                </button>
-              )}
-            </>
-          ) : (
-            <button
-              className="btn btn-primary"
-              style={{ fontSize: '0.85rem', padding: '8px 16px' }}
-              onClick={() => navigateTo('/')}
-            >
-              <Store size={16} />
-              <span>Về Trang Cửa Hàng</span>
-            </button>
-          )}
         </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 };

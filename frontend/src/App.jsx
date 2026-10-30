@@ -1,38 +1,76 @@
 import React, { useEffect, useState } from 'react';
+import { TopBar } from './components/TopBar';
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
+import { VoucherBar } from './components/VoucherBar';
+import { FlashSaleSection } from './components/FlashSaleSection';
 import { ProductCard } from './components/ProductCard';
 import { ProductDetailModal } from './components/ProductDetailModal';
+import { CompareModal } from './components/CompareModal';
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ContactModal } from './components/ContactModal';
 import { AuthModal } from './components/AuthModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { ProfilePage } from './components/ProfilePage';
+import { Footer } from './components/Footer';
 import { Toast } from './components/Toast';
-import { fetchProducts, fetchCategories } from './services/api';
-import { CartProvider } from './context/CartContext';
+import { fetchProducts, fetchCategories, fetchBrands } from './services/api';
+import { CartProvider, useCart } from './context/CartContext';
 import { useUser } from './context/UserContext';
-import { SlidersHorizontal, ShieldCheck, Truck, RefreshCw, Headset, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
+import { 
+  Filter, SlidersHorizontal, Star, DollarSign, RotateCcw, 
+  ChevronLeft, ChevronRight, Check, Zap, Layers, Sparkles 
+} from 'lucide-react';
 
 const ITEMS_PER_PAGE = 8;
 
+const SORT_OPTIONS = [
+  { id: 'popular', label: 'Phổ Biến' },
+  { id: 'newest', label: 'Mới Nhất' },
+  { id: 'bestseller', label: 'Bán Chạy' },
+  { id: 'price-asc', label: 'Giá Thấp - Cao' },
+  { id: 'price-desc', label: 'Giá Cao - Thấp' },
+  { id: 'rating', label: 'Đánh Giá Cao' }
+];
+
+const PRICE_RANGES = [
+  { id: 'all', label: 'Tất cả mức giá' },
+  { id: 'under200', label: 'Dưới $200' },
+  { id: '200-500', label: '$200 - $500' },
+  { id: '500-1000', label: '$500 - $1,000' },
+  { id: 'above1000', label: 'Trên $1,000' }
+];
+
 const MainShop = ({ search, setSearch, isContactOpen, setIsContactOpen }) => {
   const { currentUser, openAuth } = useUser();
+  const { addToCart, showToast } = useCart();
+  
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState(['All']);
+  const [brands, setBrands] = useState(['All']);
+  
+  // Filter States
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedPriceRange, setSelectedPriceRange] = useState('all');
-  const [sortBy, setSortBy] = useState('newest');
+  const [minRating, setMinRating] = useState(0);
+  const [sortBy, setSortBy] = useState('popular');
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Modals
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [comparingProduct, setComparingProduct] = useState(null);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Load Categories & Brands
   useEffect(() => {
     fetchCategories().then(data => setCategories(data)).catch(() => {});
+    fetchBrands().then(data => setBrands(data)).catch(() => {});
   }, []);
 
+  // Fetch Products with all active filters
   useEffect(() => {
     setLoading(true);
     let minPrice = '';
@@ -51,10 +89,12 @@ const MainShop = ({ search, setSearch, isContactOpen, setIsContactOpen }) => {
 
     fetchProducts({
       category: selectedCategory,
+      brand: selectedBrand,
       search: search,
       sort: sortBy,
       minPrice,
-      maxPrice
+      maxPrice,
+      minRating: minRating > 0 ? minRating : undefined
     })
       .then(data => {
         setProducts(data);
@@ -62,7 +102,31 @@ const MainShop = ({ search, setSearch, isContactOpen, setIsContactOpen }) => {
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
-  }, [selectedCategory, search, sortBy, selectedPriceRange]);
+  }, [selectedCategory, selectedBrand, search, sortBy, selectedPriceRange, minRating]);
+
+  // Reset Filters
+  const handleResetFilters = () => {
+    setSelectedCategory('All');
+    setSelectedBrand('All');
+    setSelectedPriceRange('all');
+    setMinRating(0);
+    setSearch('');
+    setSortBy('popular');
+    setCurrentPage(1);
+    showToast('Đã đặt lại toàn bộ bộ lọc!');
+  };
+
+  const handleBuyNow = (product) => {
+    if (!currentUser) {
+      showToast('Vui lòng đăng nhập để mua sản phẩm này!');
+      openAuth('login');
+      return;
+    }
+    const added = addToCart(product, 1);
+    if (added) {
+      setIsCheckoutOpen(true);
+    }
+  };
 
   // Pagination calculation
   const totalItems = products.length;
@@ -71,176 +135,309 @@ const MainShop = ({ search, setSearch, isContactOpen, setIsContactOpen }) => {
   const paginatedProducts = products.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
-    <div>
-      {/* Hero Banner */}
-      {!search && selectedCategory === 'All' && selectedPriceRange === 'all' && (
-        <HeroBanner onShopNow={() => {
+    <div className="main-shop-view">
+      {/* 1. HERO 3 PHẦN */}
+      {!search && selectedCategory === 'All' && selectedPriceRange === 'all' && selectedBrand === 'All' && (
+        <HeroBanner
+          onShopNow={() => {
+            const gridEl = document.getElementById('catalog-grid');
+            if (gridEl) gridEl.scrollIntoView({ behavior: 'smooth' });
+          }}
+          onSelectCategory={(cat) => {
+            setSelectedCategory(cat);
+            const gridEl = document.getElementById('catalog-grid');
+            if (gridEl) gridEl.scrollIntoView({ behavior: 'smooth' });
+          }}
+          selectedCategory={selectedCategory}
+        />
+      )}
+
+      {/* 2. THANH MÃ GIẢM GIÁ (VOUCHER BAR) */}
+      <VoucherBar onApplyVoucher={(code) => {
+        showToast(`Đã lưu mã voucher ${code}!`);
+      }} />
+
+      {/* 3. KHU VỰC FLASH SALE ĐẾM NGƯỢC THỜI GIAN THỰC */}
+      <FlashSaleSection
+        products={products}
+        onSelectProduct={(p) => setSelectedProduct(p)}
+        onBuyNow={handleBuyNow}
+        onViewAllFlashSale={() => {
+          setSelectedCategory('All');
+          setSortBy('popular');
           const gridEl = document.getElementById('catalog-grid');
           if (gridEl) gridEl.scrollIntoView({ behavior: 'smooth' });
-        }} />
-      )}
+        }}
+      />
 
-      {/* Category Bar & Controls */}
-      <div id="catalog-grid" className="category-bar">
-        <div className="category-pills">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              className={`cat-pill ${selectedCategory === cat ? 'active' : ''}`}
-              onClick={() => { setSelectedCategory(cat); setCurrentPage(1); }}
-            >
-              {cat === 'All' ? 'Tất cả danh mục' : cat}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <SlidersHorizontal size={16} color="var(--text-muted)" />
-          <select
-            className="sort-select"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-          >
-            <option value="newest">Mới nhất</option>
-            <option value="price-asc">Giá: Thấp đến Cao</option>
-            <option value="price-desc">Giá: Cao đến Thấp</option>
-            <option value="rating">Đánh giá cao nhất</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Price Range Filter Bar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: '12px', flexWrap: 'wrap', marginBottom: '24px',
-        padding: '10px 16px', background: 'rgba(255, 255, 255, 0.02)',
-        border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <DollarSign size={14} color="#818cf8" /> Mức giá:
-          </span>
-          {[
-            { id: 'all', label: 'Tất cả mức giá' },
-            { id: 'under200', label: 'Dưới $200' },
-            { id: '200-500', label: '$200 - $500' },
-            { id: '500-1000', label: '$500 - $1,000' },
-            { id: 'above1000', label: 'Trên $1,000' },
-          ].map(range => (
-            <button
-              key={range.id}
-              onClick={() => { setSelectedPriceRange(range.id); setCurrentPage(1); }}
-              style={{
-                padding: '6px 14px', borderRadius: 'var(--radius-full)',
-                border: selectedPriceRange === range.id ? '1px solid #818cf8' : '1px solid var(--border-light)',
-                background: selectedPriceRange === range.id ? 'rgba(99, 102, 241, 0.18)' : 'transparent',
-                color: selectedPriceRange === range.id ? '#818cf8' : 'var(--text-muted)',
-                fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s ease'
-              }}
-            >
-              {range.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Product Count Summary */}
-        <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>
-          {totalItems > 0 ? (
-            <>
-              Hiển thị <strong style={{ color: 'white' }}>{startIndex + 1} - {Math.min(startIndex + ITEMS_PER_PAGE, totalItems)}</strong> trong <strong style={{ color: 'white' }}>{totalItems}</strong> sản phẩm
-            </>
-          ) : (
-            '0 sản phẩm'
-          )}
-        </span>
-      </div>
-
-      {/* Product Catalog Grid */}
-      {loading ? (
-        <div style={{ padding: '80px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Đang tải danh sách sản phẩm...
-        </div>
-      ) : paginatedProducts.length === 0 ? (
-        <div style={{ padding: '80px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <p style={{ fontSize: '1.1rem', marginBottom: '8px', color: 'white' }}>Không tìm thấy sản phẩm nào</p>
-          <p style={{ fontSize: '0.85rem' }}>Thử chọn lại mức giá hoặc danh mục khác để xem thêm sản phẩm.</p>
-        </div>
-      ) : (
-        <div>
-          <div className="product-grid">
-            {paginatedProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onSelectProduct={(p) => setSelectedProduct(p)}
-              />
-            ))}
+      {/* 4. KHU VỰC SẢN PHẨM CHÍNH (SIDEBAR BỘ LỌC + GRID 4 CỘT) */}
+      <div id="catalog-grid" className="catalog-main-layout">
+        {/* SIDEBAR BỘ LỌC NÂNG CAO */}
+        <aside className="advanced-filter-sidebar">
+          <div className="filter-sidebar-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Filter size={18} color="#818cf8" />
+              <h3 className="filter-sidebar-title">BỘ LỌC NÂNG CAO</h3>
+            </div>
+            {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedPriceRange !== 'all' || minRating > 0 || search) && (
+              <button className="btn-reset-filter" onClick={handleResetFilters} title="Xóa tất cả bộ lọc">
+                <RotateCcw size={13} />
+                <span>Đặt lại</span>
+              </button>
+            )}
           </div>
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              gap: '8px', marginTop: '40px', flexWrap: 'wrap'
-            }}>
-              <button
-                className="btn btn-secondary"
-                disabled={currentPage === 1}
-                onClick={() => {
-                  setCurrentPage(p => Math.max(p - 1, 1));
-                  const gridEl = document.getElementById('catalog-grid');
-                  if (gridEl) gridEl.scrollIntoView({ behavior: 'smooth' });
-                }}
-                style={{ padding: '8px 14px', fontSize: '0.85rem' }}
-              >
-                <ChevronLeft size={16} />
-                <span>Trang trước</span>
-              </button>
-
-              {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(pageNum => (
+          {/* Filter Group: Danh mục */}
+          <div className="filter-group">
+            <h4 className="filter-group-title">
+              <Layers size={14} color="#818cf8" /> Danh Mục Sản Phẩm
+            </h4>
+            <div className="filter-options-list">
+              {categories.map((cat) => (
                 <button
-                  key={pageNum}
-                  onClick={() => {
-                    setCurrentPage(pageNum);
-                    const gridEl = document.getElementById('catalog-grid');
-                    if (gridEl) gridEl.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  style={{
-                    width: '38px', height: '38px', borderRadius: '10px',
-                    border: currentPage === pageNum ? 'none' : '1px solid var(--border-light)',
-                    background: currentPage === pageNum ? 'var(--gradient-primary)' : 'rgba(255,255,255,0.04)',
-                    color: currentPage === pageNum ? '#fff' : 'var(--text-muted)',
-                    fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    boxShadow: currentPage === pageNum ? '0 4px 12px rgba(99, 102, 241, 0.3)' : 'none'
-                  }}
+                  key={cat}
+                  className={`filter-btn-item ${selectedCategory === cat ? 'active' : ''}`}
+                  onClick={() => { setSelectedCategory(cat); setCurrentPage(1); }}
                 >
-                  {pageNum}
+                  <span>{cat === 'All' ? 'Tất cả danh mục' : cat}</span>
+                  {selectedCategory === cat && <Check size={14} />}
                 </button>
               ))}
+            </div>
+          </div>
 
-              <button
-                className="btn btn-secondary"
-                disabled={currentPage === totalPages}
-                onClick={() => {
-                  setCurrentPage(p => Math.min(p + 1, totalPages));
-                  const gridEl = document.getElementById('catalog-grid');
-                  if (gridEl) gridEl.scrollIntoView({ behavior: 'smooth' });
-                }}
-                style={{ padding: '8px 14px', fontSize: '0.85rem' }}
-              >
-                <span>Trang sau</span>
-                <ChevronRight size={16} />
-              </button>
+          {/* Filter Group: Khoảng Giá */}
+          <div className="filter-group">
+            <h4 className="filter-group-title">
+              <DollarSign size={14} color="#818cf8" /> Khoảng Giá (USD)
+            </h4>
+            <div className="filter-options-list">
+              {PRICE_RANGES.map((range) => (
+                <button
+                  key={range.id}
+                  className={`filter-btn-item ${selectedPriceRange === range.id ? 'active' : ''}`}
+                  onClick={() => { setSelectedPriceRange(range.id); setCurrentPage(1); }}
+                >
+                  <span>{range.label}</span>
+                  {selectedPriceRange === range.id && <Check size={14} />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Filter Group: Thương hiệu */}
+          <div className="filter-group">
+            <h4 className="filter-group-title">
+              <Sparkles size={14} color="#818cf8" /> Thương Hiệu Nổi Bật
+            </h4>
+            <div className="filter-brands-tags">
+              {brands.map((b) => (
+                <button
+                  key={b}
+                  className={`brand-tag-btn ${selectedBrand === b ? 'active' : ''}`}
+                  onClick={() => { setSelectedBrand(b); setCurrentPage(1); }}
+                >
+                  {b === 'All' ? 'Tất cả' : b}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Filter Group: Đánh giá sao */}
+          <div className="filter-group">
+            <h4 className="filter-group-title">
+              <Star size={14} color="#f59e0b" /> Đánh Giá Khách Hàng
+            </h4>
+            <div className="filter-options-list">
+              {[
+                { val: 0, label: 'Tất cả số sao' },
+                { val: 5, label: '5 Sao (Cực kỳ hài lòng)' },
+                { val: 4, label: 'Từ 4 Sao trở lên' }
+              ].map(opt => (
+                <button
+                  key={opt.val}
+                  className={`filter-btn-item ${minRating === opt.val ? 'active' : ''}`}
+                  onClick={() => { setMinRating(opt.val); setCurrentPage(1); }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {opt.val > 0 && <Star size={13} fill="#f59e0b" color="#f59e0b" />}
+                    <span>{opt.label}</span>
+                  </div>
+                  {minRating === opt.val && <Check size={14} />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        {/* RIGHT MAIN CATALOG & SORTING */}
+        <section className="catalog-content-area">
+          {/* SORTING TAB BAR */}
+          <div className="catalog-toolbar-card">
+            <div className="sort-tabs-container">
+              <span className="sort-tabs-label">
+                <SlidersHorizontal size={15} /> Sắp xếp theo:
+              </span>
+              <div className="sort-tabs-pills">
+                {SORT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    className={`sort-tab-btn ${sortBy === opt.id ? 'active' : ''}`}
+                    onClick={() => setSortBy(opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Total Results Count */}
+            <div className="catalog-results-count">
+              Tìm thấy <strong style={{ color: 'white' }}>{totalItems}</strong> sản phẩm công nghệ
+            </div>
+          </div>
+
+          {/* Active Search & Filter Chips Bar */}
+          {(selectedCategory !== 'All' || selectedBrand !== 'All' || selectedPriceRange !== 'all' || minRating > 0 || search) && (
+            <div className="active-filters-chips-bar">
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>Đang lọc:</span>
+              {selectedCategory !== 'All' && (
+                <span className="active-chip">
+                  Danh mục: {selectedCategory}
+                  <button onClick={() => setSelectedCategory('All')}>×</button>
+                </span>
+              )}
+              {selectedBrand !== 'All' && (
+                <span className="active-chip">
+                  Hãng: {selectedBrand}
+                  <button onClick={() => setSelectedBrand('All')}>×</button>
+                </span>
+              )}
+              {selectedPriceRange !== 'all' && (
+                <span className="active-chip">
+                  Giá: {PRICE_RANGES.find(r => r.id === selectedPriceRange)?.label}
+                  <button onClick={() => setSelectedPriceRange('all')}>×</button>
+                </span>
+              )}
+              {minRating > 0 && (
+                <span className="active-chip">
+                  {minRating}★ trở lên
+                  <button onClick={() => setMinRating(0)}>×</button>
+                </span>
+              )}
+              {search && (
+                <span className="active-chip highlight">
+                  Từ khóa: "{search}"
+                  <button onClick={() => setSearch('')}>×</button>
+                </span>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Modals & Drawers */}
+          {/* Product Grid 4 Columns */}
+          {loading ? (
+            <div className="catalog-loading-state">
+              <div className="loading-spinner" />
+              <p>Đang tải danh sách thiết bị công nghệ TechNova...</p>
+            </div>
+          ) : paginatedProducts.length === 0 ? (
+            <div className="catalog-empty-state">
+              <p style={{ fontSize: '1.2rem', fontWeight: 700, color: 'white', marginBottom: '8px' }}>
+                Không tìm thấy sản phẩm phù hợp
+              </p>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '18px' }}>
+                Hãy thử điều chỉnh lại bộ lọc giá, thương hiệu hoặc từ khóa tìm kiếm.
+              </p>
+              <button className="btn btn-secondary" onClick={handleResetFilters}>
+                Đặt lại toàn bộ bộ lọc
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="product-grid-4-col">
+                {paginatedProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onSelectProduct={(p) => setSelectedProduct(p)}
+                    onCompareProduct={(p) => setComparingProduct(p)}
+                    onBuyNow={handleBuyNow}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="pagination-bar">
+                  <button
+                    className="btn btn-secondary pagination-nav-btn"
+                    disabled={currentPage === 1}
+                    onClick={() => {
+                      setCurrentPage(p => Math.max(p - 1, 1));
+                      const gridEl = document.getElementById('catalog-grid');
+                      if (gridEl) gridEl.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    <ChevronLeft size={16} />
+                    <span>Trước</span>
+                  </button>
+
+                  <div className="pagination-numbers">
+                    {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(pageNum => (
+                      <button
+                        key={pageNum}
+                        className={`page-num-btn ${currentPage === pageNum ? 'active' : ''}`}
+                        onClick={() => {
+                          setCurrentPage(pageNum);
+                          const gridEl = document.getElementById('catalog-grid');
+                          if (gridEl) gridEl.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    className="btn btn-secondary pagination-nav-btn"
+                    disabled={currentPage === totalPages}
+                    onClick={() => {
+                      setCurrentPage(p => Math.min(p + 1, totalPages));
+                      const gridEl = document.getElementById('catalog-grid');
+                      if (gridEl) gridEl.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    <span>Sau</span>
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* MODALS & DRAWERS */}
       <ProductDetailModal
         product={selectedProduct}
         onClose={() => setSelectedProduct(null)}
+        onBuyNow={() => {
+          if (!currentUser) {
+            openAuth('login');
+            return;
+          }
+          setIsCheckoutOpen(true);
+        }}
+      />
+
+      <CompareModal
+        baseProduct={comparingProduct}
+        allProducts={products}
+        onClose={() => setComparingProduct(null)}
+        onSelectProduct={(p) => {
+          setComparingProduct(null);
+          setSelectedProduct(p);
+        }}
       />
 
       <CartDrawer
@@ -266,19 +463,19 @@ const MainShop = ({ search, setSearch, isContactOpen, setIsContactOpen }) => {
   );
 };
 
-// 404 Not Found Page
+// 404 Page
 const NotFoundPage = ({ navigateTo }) => (
   <div style={{
     display: 'flex', flexDirection: 'column', alignItems: 'center',
-    justifyContent: 'center', padding: '80px 20px', gap: '16px', textAlign: 'center'
+    justifyContent: 'center', padding: '100px 20px', gap: '16px', textAlign: 'center'
   }}>
     <div style={{ fontSize: '6rem', fontWeight: 900, color: '#1f2937', lineHeight: 1 }}>404</div>
     <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff' }}>Trang không tìm thấy</h2>
     <p style={{ color: 'var(--text-muted)', maxWidth: '360px', lineHeight: 1.6 }}>
-      Trang bạn đang tìm kiếm không tồn tại hoặc đã bị xóa.
+      Đường dẫn bạn yêu cầu không tồn tại trên sàn TechNova.
     </p>
     <button className="btn btn-primary" onClick={() => navigateTo('/')} style={{ marginTop: '8px' }}>
-      Về Trang Chủ
+      Về Trang Chủ Sàn TMĐT
     </button>
   </div>
 );
@@ -302,10 +499,12 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const isAdminRoute = currentPath === '/admin';
+
   const renderPage = () => {
     switch (currentPath) {
       case '/admin':
-        return <AdminDashboard />;
+        return <AdminDashboard navigateTo={navigateTo} />;
       case '/profile':
         return <ProfilePage navigateTo={navigateTo} />;
       case '/':
@@ -324,78 +523,30 @@ export default function App() {
 
   return (
     <CartProvider>
-      <div className="app-container">
-        <Navbar
-          search={search}
-          setSearch={setSearch}
-          currentPath={currentPath}
-          navigateTo={navigateTo}
-          onOpenContact={() => setIsContactOpen(true)}
-        />
+      <div className={`app-container ${isAdminRoute ? 'admin-mode' : ''}`}>
+        {/* TOP BAR: Chỉ hiện ngoài trang khách hàng */}
+        {!isAdminRoute && <TopBar onOpenContact={() => setIsContactOpen(true)} />}
 
-        <main className="main-content">
+        {/* STICKY HEADER NAVBAR: Chỉ hiện ngoài trang khách hàng */}
+        {!isAdminRoute && (
+          <Navbar
+            search={search}
+            setSearch={setSearch}
+            currentPath={currentPath}
+            navigateTo={navigateTo}
+            onOpenContact={() => setIsContactOpen(true)}
+          />
+        )}
+
+        {/* MAIN ROUTE CONTENT */}
+        <main className={`main-content ${isAdminRoute ? 'main-content-admin' : ''}`}>
           {renderPage()}
         </main>
 
-        {/* Enhanced Footer */}
-        <footer className="footer">
-          <div style={{
-            maxWidth: '1300px', margin: '0 auto',
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '32px', paddingBottom: '32px', borderBottom: '1px solid var(--border-light)',
-            marginBottom: '24px', textAlign: 'left'
-          }}>
-            {/* Brand */}
-            <div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#fff', marginBottom: '10px' }}>
-                Tech<span style={{ color: '#818cf8' }}>Nova</span>
-              </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.7 }}>
-                Hệ thống công nghệ số 1 Việt Nam. Sản phẩm chính hãng, giao hàng nhanh.
-              </p>
-            </div>
-            {/* Links */}
-            <div>
-              <div style={{ fontWeight: 700, color: '#fff', marginBottom: '12px', fontSize: '0.9rem' }}>Cửa Hàng</div>
-              {['Laptop', 'Smartphone', 'Audio', 'Monitor', 'Phụ kiện'].map(item => (
-                <div key={item} style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '8px', cursor: 'pointer' }}
-                  onMouseEnter={e => e.target.style.color = '#818cf8'}
-                  onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}
-                >{item}</div>
-              ))}
-            </div>
-            {/* Support */}
-            <div>
-              <div style={{ fontWeight: 700, color: '#fff', marginBottom: '12px', fontSize: '0.9rem' }}>Hỗ Trợ</div>
-              {['Chính sách bảo hành', 'Đổi trả 30 ngày', 'Vận chuyển 2H', 'Hướng dẫn mua hàng'].map(item => (
-                <div key={item} style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '8px', cursor: 'pointer' }}
-                  onMouseEnter={e => e.target.style.color = '#818cf8'}
-                  onMouseLeave={e => e.target.style.color = 'var(--text-muted)'}
-                >{item}</div>
-              ))}
-            </div>
-            {/* Contact Info */}
-            <div>
-              <div style={{ fontWeight: 700, color: '#fff', marginBottom: '12px', fontSize: '0.9rem' }}>Liên Hệ</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {[
-                  { icon: Headset, text: '1800 1234 (Miễn phí)' },
-                  { icon: ShieldCheck, text: 'Hàng chính hãng 100%' },
-                  { icon: Truck, text: 'Giao siêu tốc 2H' },
-                  { icon: RefreshCw, text: 'Đổi trả 30 ngày' },
-                ].map(({ icon: Icon, text }) => (
-                  <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    <Icon size={14} color="#818cf8" /> {text}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <p style={{ marginBottom: 0, color: 'var(--text-dim)' }}>
-            © 2026 TechNova E-Commerce Store. All rights reserved.
-          </p>
-        </footer>
+        {/* FULL FOOTER: Chỉ hiện ngoài trang khách hàng */}
+        {!isAdminRoute && <Footer />}
 
+        {/* AUTH MODAL & TOAST */}
         <AuthModal navigateTo={navigateTo} />
         <Toast />
       </div>

@@ -9,11 +9,15 @@ router.post('/', orderController.createOrder);
 // Mock payment route
 router.post('/:id/pay', orderController.processPayment);
 
-// Customer order history
+// Customer order history, completion, and cancellation
 router.get('/mine', verifyToken, orderController.getUserOrders);
+router.get('/:id', verifyToken, orderController.getOrderById);
+router.put('/:id/complete', verifyToken, orderController.completeUserOrder);
+router.put('/:id/cancel', verifyToken, orderController.cancelOrder);
 
 // Protected routes (Admin only)
 router.get('/', verifyToken, isAdmin, orderController.getAllOrders);
 router.put('/:id', verifyToken, isAdmin, orderController.updateOrderStatus);
+router.delete('/:id', verifyToken, isAdmin, orderController.deleteOrder);
 
 module.exports = router;
