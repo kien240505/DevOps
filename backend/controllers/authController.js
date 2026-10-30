@@ -19,6 +19,9 @@ exports.register = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) {
+      return res.status(503).json({ error: 'Cơ sở dữ liệu đang kết nối hoặc chưa sẵn sàng. Vui lòng thử lại sau vài giây!' });
+    }
     const checkResult = await pool.request()
       .input('email', sql.NVARCHAR, email)
       .query('SELECT id FROM users WHERE email = @email');
@@ -96,6 +99,9 @@ exports.login = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) {
+      return res.status(503).json({ error: 'Cơ sở dữ liệu đang kết nối hoặc chưa sẵn sàng. Vui lòng thử lại sau vài giây!' });
+    }
     const result = await pool.request()
       .input('email', sql.NVARCHAR, email)
       .query('SELECT * FROM users WHERE email = @email');
@@ -153,6 +159,7 @@ exports.getProfile = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request()
       .input('id', sql.INT, userId)
       .query('SELECT id, fullname, email, phone, avatar, role, created_at FROM users WHERE id = @id');
@@ -191,6 +198,7 @@ exports.updateProfile = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const request = pool.request()
       .input('id', sql.INT, userId)
       .input('fullname', sql.NVARCHAR, fullname)
