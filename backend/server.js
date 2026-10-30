@@ -21,6 +21,22 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Root Endpoint
+app.get('/', (req, res) => {
+  res.json({
+    service: 'TechNova E-Commerce API',
+    status: 'Running',
+    endpoints: {
+      health: '/api/health',
+      products: '/api/products',
+      orders: '/api/orders',
+      admin: '/api/admin',
+      auth: '/api/auth',
+      contact: '/api/contact'
+    }
+  });
+});
+
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {
   res.json({

@@ -2,37 +2,38 @@ services:
   database:
     image: mcr.microsoft.com/azure-sql-edge:latest
     container_name: technova-database
-    user: "0:0"
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${DB_PASSWORD:-DevOps2026@Pass}"
+      MSSQL_SA_PASSWORD: "${DOCKER_DB_PASSWORD:-${DB_PASSWORD:-DevOps2026@Pass}}"
       MSSQL_PID: "Developer"
     ports:
       - "${DB_PORT:-1433}:1433"
     volumes:
       - mssql_data:/var/opt/mssql
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"${DB_PASSWORD:-DevOps2026@Pass}\" -Q \"SELECT 1\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   backend:
     build:
       context: ./backend
     container_name: technova-backend
     depends_on:
-      - database
-    env_file:
-      - path: ${BACKEND_ENV_FILE:-./backend/.env}
-        required: false
+      database:
+        condition: service_healthy
     environment:
       PORT: "5000"
       DB_SERVER: "${DOCKER_DB_SERVER:-database}"
       DB_USER: "${DOCKER_DB_USER:-sa}"
-      DB_PASSWORD: "${DOCKER_DB_PASSWORD:-DevOps2026@Pass}"
-      DB_NAME: "${DOCKER_DB_NAME:-DevOps}"
+      DB_PASSWORD: "${DOCKER_DB_PASSWORD:-${DB_PASSWORD:-DevOps2026@Pass}}"
+      DB_NAME: "${DB_NAME:-DevOps}"
       JWT_SECRET: "${JWT_SECRET:-supersecretjwtkeydevops2026}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    expose:
-      - "5000"
     ports:
       - "5000:5000"
     restart: unless-stopped
