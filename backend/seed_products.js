@@ -1,5 +1,3 @@
-const { poolPromise, sql } = require('./db');
-
 const PRODUCTS_DATA = [
   {
     "id": 1,

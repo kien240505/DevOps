@@ -332,6 +332,14 @@ async function initializeDb(pool) {
         console.error('Error seeding products catalog:', seedErr);
       }
     }
+
+    // Seed comprehensive admin and demo data (Users, Comments, Orders, Messages)
+    try {
+      const { seedAllData } = require('./seed_all');
+      await seedAllData(pool, sql);
+    } catch (adminSeedErr) {
+      console.error('Error seeding admin and demo data:', adminSeedErr);
+    }
   } catch (err) {
     console.error('Error during DB Initialization:', err);
   }
