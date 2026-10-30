@@ -39,6 +39,9 @@ router.post('/login', async (req, res) => {
   // 2. Check users database for admin account
   try {
     const pool = await poolPromise;
+    if (!pool) {
+      return res.status(401).json({ error: 'Tài khoản hoặc mật khẩu quản trị không chính xác!' });
+    }
     const result = await pool.request()
       .input('email', sql.NVARCHAR, username.trim())
       .query("SELECT * FROM users WHERE (LOWER(email) = LOWER(@email) OR LOWER(fullname) = LOWER(@email)) AND role = 'admin'");
@@ -76,6 +79,7 @@ router.post('/login', async (req, res) => {
 router.get('/stats', verifyToken, isAdmin, async (req, res) => {
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     
     const prodResult = await pool.request().query('SELECT COUNT(*) as totalProducts, SUM(CASE WHEN stock <= 3 THEN 1 ELSE 0 END) as lowStock FROM products');
     const orderResult = await pool.request().query('SELECT COUNT(*) as totalOrders, SUM(total_amount) as totalRevenue, SUM(CASE WHEN status = \'Pending\' THEN 1 ELSE 0 END) as pendingOrders FROM orders');
@@ -106,6 +110,7 @@ router.get('/stats', verifyToken, isAdmin, async (req, res) => {
 router.get('/comments', verifyToken, isAdmin, async (req, res) => {
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request().query(`
       SELECT 
         c.id, c.product_id, c.author, c.avatar, c.rating, c.content,
@@ -128,6 +133,7 @@ router.put('/comments/:id/reply', verifyToken, isAdmin, async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     await pool.request()
       .input('id', sql.INT, commentId)
       .input('reply', sql.NVARCHAR, admin_reply || '')
@@ -145,6 +151,7 @@ router.delete('/comments/:id', verifyToken, isAdmin, async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     await pool.request()
       .input('id', sql.INT, commentId)
       .query('DELETE FROM comments WHERE id = @id');
@@ -163,6 +170,7 @@ router.delete('/comments/:id', verifyToken, isAdmin, async (req, res) => {
 router.get('/vouchers', verifyToken, isAdmin, async (req, res) => {
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request().query('SELECT * FROM vouchers ORDER BY id DESC');
     res.json(result.recordset);
   } catch (err) {
@@ -180,6 +188,7 @@ router.post('/vouchers', verifyToken, isAdmin, async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     await pool.request()
       .input('code', sql.NVARCHAR, code.toUpperCase().trim())
       .input('type', sql.NVARCHAR, discount_type || 'percent')
@@ -205,6 +214,7 @@ router.put('/vouchers/:id/toggle', verifyToken, isAdmin, async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     await pool.request()
       .input('id', sql.INT, voucherId)
       .query('UPDATE vouchers SET is_active = CASE WHEN is_active = 1 THEN 0 ELSE 1 END WHERE id = @id');
@@ -221,6 +231,7 @@ router.delete('/vouchers/:id', verifyToken, isAdmin, async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     await pool.request()
       .input('id', sql.INT, voucherId)
       .query('DELETE FROM vouchers WHERE id = @id');

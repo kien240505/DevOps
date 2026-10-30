@@ -9,6 +9,7 @@ exports.createOrder = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const transaction = new sql.Transaction(pool);
     await transaction.begin();
 
@@ -87,6 +88,7 @@ exports.createOrder = async (req, res) => {
 exports.getAllOrders = async (req, res) => {
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const { status, search } = req.query;
 
     let query = 'SELECT * FROM orders WHERE 1=1';
@@ -128,6 +130,7 @@ exports.getUserOrders = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const ordersResult = await pool.request()
       .input('email', sql.NVARCHAR, email)
       .query('SELECT * FROM orders WHERE LOWER(email) = LOWER(@email) ORDER BY id DESC');
@@ -151,6 +154,7 @@ exports.getOrderById = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const orderResult = await pool.request()
       .input('id', sql.INT, orderId)
       .query('SELECT * FROM orders WHERE id = @id');
@@ -182,6 +186,7 @@ exports.updateOrderStatus = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const request = pool.request()
       .input('status', sql.NVARCHAR, status)
       .input('id', sql.INT, orderId);
@@ -214,6 +219,7 @@ exports.completeUserOrder = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const orderCheck = await pool.request()
       .input('id', sql.INT, orderId)
       .query('SELECT * FROM orders WHERE id = @id');
@@ -244,6 +250,7 @@ exports.cancelOrder = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const orderCheck = await pool.request()
       .input('id', sql.INT, orderId)
       .query('SELECT * FROM orders WHERE id = @id');
@@ -301,6 +308,7 @@ exports.deleteOrder = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request()
       .input('id', sql.INT, orderId)
       .query('DELETE FROM orders WHERE id = @id');
@@ -323,6 +331,7 @@ exports.processPayment = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const orderResult = await pool.request()
       .input('id', sql.INT, orderId)
       .query('SELECT * FROM orders WHERE id = @id');

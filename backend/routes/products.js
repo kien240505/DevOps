@@ -99,6 +99,7 @@ router.get('/', async (req, res) => {
 router.get('/categories', async (req, res) => {
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request().query('SELECT DISTINCT category FROM products WHERE category IS NOT NULL');
     const categories = ['All', ...result.recordset.map(r => r.category).filter(Boolean)];
     res.json(categories);
@@ -110,6 +111,7 @@ router.get('/categories', async (req, res) => {
 router.get('/brands', async (req, res) => {
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request().query('SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL');
     const brands = ['All', ...result.recordset.map(r => r.brand).filter(Boolean)];
     res.json(brands);
@@ -121,6 +123,7 @@ router.get('/brands', async (req, res) => {
 router.get('/flash-sale', async (req, res) => {
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request().query('SELECT * FROM products WHERE is_flash_sale = 1 OR featured = 1 ORDER BY sold_count DESC');
     const products = result.recordset.map(p => {
       let quickSpecs = [];
@@ -148,6 +151,7 @@ router.get('/:id', async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const prodResult = await pool.request()
       .input('id', sql.INT, productId)
       .query('SELECT * FROM products WHERE id = @id');
@@ -214,6 +218,7 @@ router.post('/:id/comments', async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const insertResult = await pool.request()
       .input('product_id', sql.INT, productId)
       .input('user_id', sql.INT, userId || null)
@@ -269,6 +274,7 @@ router.delete('/:id/comments/:commentId', verifyToken, async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const commentCheck = await pool.request()
       .input('id', sql.INT, commentId)
       .input('product_id', sql.INT, productId)
@@ -313,6 +319,7 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request()
       .input('name', sql.NVARCHAR, name)
       .input('category', sql.NVARCHAR, category)
@@ -341,6 +348,7 @@ router.put('/:id', verifyToken, isAdmin, async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const existingRes = await pool.request()
       .input('id', sql.INT, productId)
       .query('SELECT * FROM products WHERE id = @id');
@@ -384,6 +392,7 @@ router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
   const productId = req.params.id;
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     await pool.request()
       .input('id', sql.INT, productId)
       .query('DELETE FROM products WHERE id = @id');

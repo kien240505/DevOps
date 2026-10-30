@@ -250,6 +250,7 @@ exports.changePassword = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request()
       .input('id', sql.INT, userId)
       .query('SELECT password FROM users WHERE id = @id');
@@ -280,6 +281,7 @@ exports.forgotPassword = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request()
       .input('email', sql.NVARCHAR, email)
       .query('SELECT id FROM users WHERE email = @email');
@@ -317,6 +319,7 @@ exports.resetPassword = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request()
       .input('email', sql.NVARCHAR, email)
       .input('resetToken', sql.NVARCHAR, resetToken)
@@ -350,6 +353,7 @@ exports.resetPassword = async (req, res) => {
 exports.getUsers = async (req, res) => {
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
     const result = await pool.request().query('SELECT id, fullname, email, phone, avatar, role, created_at FROM users ORDER BY id DESC');
     res.json(result.recordset);
   } catch (err) {
@@ -367,6 +371,7 @@ exports.deleteUser = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    if (!pool) return res.status(503).json({ error: 'Cơ sở dữ liệu chưa sẵn sàng!' });
 
     // Check if user exists and if user is admin
     const checkUser = await pool.request()

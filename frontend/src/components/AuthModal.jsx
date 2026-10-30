@@ -65,7 +65,7 @@ export const AuthModal = ({ navigateTo }) => {
       setIsAuthOpen(false);
       setForm({ fullname: '', email: '', phone: '', password: '', confirmPassword: '' });
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Đã xảy ra lỗi. Vui lòng thử lại sau!');
     } finally {
       setIsLoading(false);
     }
