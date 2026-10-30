@@ -24,8 +24,10 @@ pipeline {
       steps {
         script {
           if (isUnix()) {
+            sh 'docker compose pull database || true'
             sh 'docker compose build'
           } else {
+            bat 'docker compose pull database || ver > nul'
             bat 'docker compose build'
           }
         }

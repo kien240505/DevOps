@@ -31,16 +31,46 @@ if (instanceName) {
   config.options.instanceName = instanceName;
 }
 
-const poolPromise = new sql.ConnectionPool(config)
-  .connect()
-  .then(async pool => {
-    console.log('Connected to MSSQL Database at', serverHost);
-    await initializeDb(pool);
-    return pool;
-  })
-  .catch(err => {
-    console.error('Database Connection Failed! Bad Config: ', err);
-  });
+const poolPromise = (async () => {
+  const isTest = process.env.NODE_ENV === 'test';
+  const retries = isTest ? 3 : 12;
+  const delay = isTest ? 1000 : 3000;
+
+  for (let i = 1; i <= retries; i++) {
+    try {
+      // 1. Try to ensure database exists if connecting to a fresh container as admin/sa
+      try {
+        const masterConfig = { ...config, database: 'master' };
+        const masterPool = await new sql.ConnectionPool(masterConfig).connect();
+        await masterPool.request().query(`
+          IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '${config.database}')
+          BEGIN
+            CREATE DATABASE [${config.database}];
+          END
+        `);
+        await masterPool.close();
+      } catch {
+        // If connecting to master fails (e.g. non-sysadmin user), continue to direct database connection
+      }
+
+      // 2. Connect directly to target database
+      const pool = await new sql.ConnectionPool(config).connect();
+      console.log(`Connected to MSSQL Database at ${serverHost} (Database: ${config.database})`);
+      await initializeDb(pool);
+      return pool;
+    } catch (err) {
+      if (!isTest && i < retries) {
+        console.warn(`MSSQL connection attempt ${i}/${retries} failed (${err.message}). Retrying in ${delay / 1000}s...`);
+      }
+      if (i === retries) {
+        console.error('Database Connection Failed! Bad Config: ', err.message || err);
+        return null;
+      }
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  return null;
+})();
 
 async function initializeDb(pool) {
   try {
