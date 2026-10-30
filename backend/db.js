@@ -1,3 +1,15 @@
+// Polyfill Promise.withResolvers for Node.js < 22 support in mssql v12
+if (typeof Promise.withResolvers === 'undefined') {
+  Promise.withResolvers = function () {
+    let resolve, reject;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  };
+}
+
 const sql = require('mssql');
 const path = require('path');
 require('dotenv').config();
